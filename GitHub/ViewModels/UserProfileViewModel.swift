@@ -2,7 +2,7 @@
 //  UserProfileViewModel.swift
 //  GitHub
 //
-//  Created by Rizwan Rafeek on 24/06/2024.
+//  Created by Akil Rafeek on 24/06/2024.
 //
 
 import Foundation

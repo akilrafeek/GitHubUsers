@@ -2,7 +2,7 @@
 //  MockCoreDataManager.swift
 //  GitHubTests
 //
-//  Created by Rizwan Rafeek on 19/07/2024.
+//  Created by Akil Rafeek on 19/07/2024.
 //
 
 import Foundation

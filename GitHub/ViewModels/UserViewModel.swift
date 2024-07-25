@@ -2,7 +2,7 @@
 //  UserViewModel.swift
 //  GitHub
 //
-//  Created by Rizwan Rafeek on 22/06/2024.
+//  Created by Akil Rafeek on 22/06/2024.
 //
 
 import Foundation
@@ -38,20 +38,6 @@ class UserViewModel {
         let user = isSearchActive ? filteredUsers[index] : users[index]
         return UserCellViewModelImpl(user: user)
     }
-    
-//    private func setupNetworkMonitorting() {
-//        networkManager.connectionChangedHandler = { [weak self] isConnected in
-//            DispatchQueue.main.async {
-//                self?.isOffline = !isConnected
-//                if isConnected {
-//                    self?.fetchUsers()
-//                } else {
-//                    self?.startRetryTimer()
-//                }
-//            }
-//        }
-//        networkManager.startMonitoring()
-//    }
     
     private func setupNetworkMonitoring() {
         networkManager.connectionChangedHandler = { [weak self] isConnected in
@@ -120,19 +106,6 @@ class UserViewModel {
             self?.onUserFetched?()
         }
     }
-    
-//    func loadUserFromLocal() {
-//        isLoading = true
-//        coreDataManager.fetchUsers { [weak self] fetchedUsers in
-//            if fetchedUsers.isEmpty {
-//                self?.setupNetworkMonitorting()
-//            } else {
-//                self?.users = fetchedUsers
-//                self?.onUserFetched?()
-//                self?.isLoading = false
-//            }
-//        }
-//    }
     
     func loadUserFromLocal() {
         isLoading = true
