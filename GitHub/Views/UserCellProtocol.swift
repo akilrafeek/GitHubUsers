@@ -9,15 +9,12 @@ import UIKit
 
 protocol UserCellViewModel {
     var login: String { get }
+    var note: String { get }
     var avatarUrl: String { get }
     var hasNote: Bool { get }
     var isSeen: Bool { get }
 }
 
 protocol UserCell: UITableViewCell {
-    func configure(with viewModel: UserCellViewModel)
-}
-
-protocol InvertedAvatarCell: UserCell {
-    func invertAvatar()
+    func configure(with viewModel: UserCellViewModel, isinverted: Bool)
 }

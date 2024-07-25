@@ -6,20 +6,36 @@
 //
 
 import XCTest
+import CoreData
 @testable import GitHub
 
 class CoreDataManagerTests: XCTestCase {
     
     var coreDataManager: CoreDataManager!
+    var managedObjectContext: NSManagedObjectContext!
     
     override func setUp() {
         super.setUp()
+        
+        // Manually load the managed object model
+        guard let modelURL = Bundle(for: type(of: self)).url(forResource: "GitHub", withExtension: "momd") else {
+            XCTFail("Failed to find the Core Data model file")
+            return
+        }
+                
+        guard let mom = NSManagedObjectModel(contentsOf: modelURL) else {
+            XCTFail("Failed to create managed object model")
+            return
+        }
+        
         // Initialize CoreDataManager with in-memory store for testing
-        coreDataManager = CoreDataManager(inMemory: true)
+        coreDataManager = CoreDataManager(inMemory: true, managedObjectModel: mom)
+        managedObjectContext = coreDataManager.mainContext
     }
     
     override func tearDown() {
         coreDataManager = nil
+        managedObjectContext = nil
         super.tearDown()
     }
     

@@ -9,13 +9,12 @@ import Foundation
 @testable import GitHub
 
 class MockNetworkManager: NetworkManagerProtocol {
-    func fetchUserProfile(username: String, completion: @escaping (Result<UserProfile, NetworkError>) -> Void) {
-        //later
-    }
-    
     var fetchUsersResult: Result<[User], NetworkError> = .success([])
     var isConnected = true
     var connectionChangedHandler: ((Bool) -> Void)?
+    
+    var shouldReturnSuccess: Bool = true
+    var mockUserProfile: UserProfile?
     
     func fetchUsers(since: Int, completion: @escaping (Result<[User], NetworkError>) -> Void) {
         completion(fetchUsersResult)
@@ -23,5 +22,13 @@ class MockNetworkManager: NetworkManagerProtocol {
     
     func startMonitoring() {
         // Implementation not needed for these tests
+    }
+    
+    func fetchUserProfile(username: String, completion: @escaping (Result<UserProfile, NetworkError>) -> Void) {
+        if shouldReturnSuccess, let mockProfile = mockUserProfile {
+            completion(.success(mockProfile))
+        } else {
+            completion(.failure(.decodingError))
+        }
     }
 }

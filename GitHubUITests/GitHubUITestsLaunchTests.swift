@@ -2,7 +2,7 @@
 //  GitHubUITestsLaunchTests.swift
 //  GitHubUITests
 //
-//  Created by Rizwan Rafeek on 16/06/2024.
+//  Created by Akil Rafeek on 16/06/2024.
 //
 
 import XCTest

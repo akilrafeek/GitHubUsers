@@ -11,14 +11,11 @@ struct UserProfile: Codable {
     var login: String
     var id: Int
     var avatarUrl: String
-    var followers: Int?
-    var following: Int?
-    var name: String?
+    var followers: Int
+    var following: Int
+    var name: String
     var company: String?
-    var blog: String?
-    var location: String?
-    var email: String?
-    var notes: String?
+    var blog: String
     
     enum CodingKeys: String, CodingKey {
         case login
@@ -29,8 +26,5 @@ struct UserProfile: Codable {
         case name
         case company
         case blog
-        case location
-        case email
-        case notes
     }
 }

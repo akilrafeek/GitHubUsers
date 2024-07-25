@@ -6,13 +6,27 @@
 //
 
 import Foundation
-import Combine
+import Network
+import Reachability
 
-enum NetworkError: Error {
+enum NetworkError: Error, Equatable {
     case invalidURL
     case noData
     case decodingError
     case serverError(String)
+    
+    static func == (lhs: NetworkError, rhs: NetworkError) -> Bool {
+        switch (lhs, rhs) {
+        case (.invalidURL, .invalidURL),
+             (.noData, .noData),
+             (.decodingError, .decodingError):
+            return true
+        case (.serverError(let lhsString), .serverError(let rhsString)):
+            return lhsString == rhsString
+        default:
+            return false
+        }
+    }
 }
 
 enum HTTPMethod: String {
@@ -21,13 +35,13 @@ enum HTTPMethod: String {
 }
 
 enum Endpoint {
-    case usersList(since: Int)
+    case usersList(since: Int, limit: Int)
     case userProfile(username: String)
     
     var path: String {
         switch self {
-        case .usersList(let since):
-            return "/users?since=\(since)"
+        case .usersList(let since, let limit):
+            return "/users?since=\(since)&per_page=\(limit)"
         case .userProfile(let username):
             return "/users/\(username)"
         }
@@ -41,7 +55,8 @@ enum Endpoint {
     }
 }
 
-class NetworkManager {
+class NetworkManager: NetworkManagerProtocol {
+    
     static let shared = NetworkManager()
     private init() {}
     
@@ -49,14 +64,47 @@ class NetworkManager {
     private var currentTask: URLSessionDataTask?
     private var requestQueue: [URLRequest] = []
     
+    private let reachability = try! Reachability()
+    private(set) var isConnected = false
+    var connectionChangedHandler: ((Bool) -> Void)?
+    
+    func startMonitoring() {
+        reachability.whenReachable = { [weak self] reachability in
+            self?.isConnected = true
+            self?.connectionChangedHandler?(true)
+        }
+        reachability.whenUnreachable = { [weak self] _ in
+            self?.isConnected = false
+            self?.connectionChangedHandler?(false)
+        }
+        
+        do {
+            try reachability.startNotifier()
+        } catch {
+            print("Unable to start notifier")
+        }
+    }
+    
+    deinit {
+        reachability.stopNotifier()
+    }
+    
+//    private func retryFailedRequests() {
+//        DispatchQueue.main.async {
+//            self.executeNextRequest()
+//        }
+//    }
+    
     private func executeNextRequest() {
         guard currentTask == nil, let nextRequest = requestQueue.first else { return }
         
         currentTask = URLSession.shared.dataTask(with: nextRequest) { [weak self] data, response, error in
-            defer {
+            do {
                 self?.currentTask = nil
-                self?.requestQueue.removeFirst()
-                self?.executeNextRequest()
+                if !(self?.requestQueue.isEmpty)! {
+                    self?.requestQueue.removeFirst()
+                    self?.executeNextRequest()
+                }
             }
         }
         currentTask?.resume()
@@ -78,10 +126,12 @@ class NetworkManager {
         }
         
         currentTask = URLSession.shared.dataTask(with: request) { data, response, error in
-            defer {
+            do {
                 self.currentTask = nil
-                self.requestQueue.removeFirst()
-                self.executeNextRequest()
+                if !self.requestQueue.isEmpty {
+                    self.requestQueue.removeFirst()
+                    self.executeNextRequest()
+                }
             }
             
             if let error = error {
@@ -98,7 +148,7 @@ class NetworkManager {
                 let decodeObject = try JSONDecoder().decode(T.self, from: data)
                 completion(.success(decodeObject))
             } catch {
-                completion(.failure(.decodingError))
+                completion(.failure(.invalidURL))
             }
         }
         currentTask?.resume()
@@ -122,8 +172,8 @@ class NetworkManager {
         }
     }
     
-    func fetchUsers(since: Int, completion: @escaping (Result<[User], NetworkError>) -> Void) {
-        fetch(.usersList(since: since)) { (result: Result<[User], NetworkError>) in
+    func fetchUsers(since: Int, limit: Int, completion: @escaping (Result<[User], NetworkError>) -> Void) {
+        fetch(.usersList(since: since, limit: limit)) { (result: Result<[User], NetworkError>) in
             completion(result)
         }
     }
@@ -133,4 +183,13 @@ class NetworkManager {
             completion(result)
         }
     }
+}
+
+protocol NetworkManagerProtocol {
+    var isConnected: Bool { get }
+    var connectionChangedHandler: ((Bool) -> Void)? { get set }
+    
+    func fetchUsers(since: Int, limit: Int, completion: @escaping (Result<[User], NetworkError>) -> Void)
+    func fetchUserProfile(username: String, completion: @escaping (Result<UserProfile, NetworkError>) -> Void)
+    func startMonitoring()
 }

@@ -8,51 +8,52 @@
 import SwiftUI
 
 struct UserProfileView: View {
-    
-//    var username: String?
-//    var userId: String?
-    @StateObject var viewModel: UserProfileViewModel
+    @ObservedObject var viewModel: UserProfileViewModel
+    @State private var note: String = ""
     @Environment(\.colorScheme) var colorScheme
-    
-    init(username: String, userId: Int16) {
-        _viewModel = StateObject(wrappedValue: UserProfileViewModel(username: username, userId: userId))
-    }
     
     var body: some View {
         VStack(alignment: .leading) {
             HStack {
                 Spacer()
-                RemoteImageView(urlString: viewModel.userProfile?.value(forKey: "avatarUrl") as? String ?? "")
+                RemoteImageView(urlString: viewModel.avatarUrl)
                     .frame(width: 200, height: 200)
                     .clipShape(/*@START_MENU_TOKEN@*/Circle()/*@END_MENU_TOKEN@*/)
+                    .overlay(Circle().stroke(Color.gray, lineWidth: 2))
                 Spacer()
             }.padding()
             
             HStack {
                 Spacer()
-                Text("Followers: \(viewModel.userProfile?.value(forKey: "followers") as? Int ?? 0)")
+                Text("Followers: \(viewModel.followers)")
                 Spacer()
-                Text("Following: \(viewModel.userProfile?.value(forKey: "following") as? Int ?? 0)")
+                Text("Following: \(viewModel.following)")
                 Spacer()
             }.padding()
             
             HStack {
                 VStack(alignment: .leading) {
-                    Text("Name: \(viewModel.userProfile?.value(forKey: "login") as? String ?? "-")")
-                    Text("Company: \(viewModel.userProfile?.value(forKey: "company") as? String ?? "-")")
-                    Text("Blog: \(viewModel.userProfile?.value(forKey: "blog") as? String ?? "-")")
+                    Text("Name: \(viewModel.name)")
+                    Text("Company: \(viewModel.company)")
+                    Text("Blog: \(viewModel.blog)")
                 }
                 Spacer()
             }.padding()
-                .border(colorScheme == .dark ? Color.white : Color.black, width: 1).padding()
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(colorScheme == .dark ? Color.white : Color.black, lineWidth: 1)
+                ).padding()
             
             Spacer()
             
             HStack {
                 VStack(alignment: .leading) {
-                    Text("Notes:").padding()
-                    TextEditor(text: $viewModel.inputNote)
-                        .border(colorScheme == .dark ? Color.white : Color.black, width: 1)
+                    Text("Notes:").padding([.leading], 15)
+                    TextEditor(text: $note)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(colorScheme == .dark ? Color.white : Color.black, lineWidth: 1)
+                        )
                         .padding()
                 }
             }
@@ -60,16 +61,32 @@ struct UserProfileView: View {
             HStack(alignment: .center) {
                 Spacer()
                 Button("Save") {
-                    viewModel.saveNoteToLocal()
+                    viewModel.saveNote(note)
                 }.padding()
                 Spacer()
             }
             
         }
         .onAppear {
-            viewModel.fetchUserProfile()
-//            viewModel.loadNoteFromLocal()
+            viewModel.loadUserProfile()
+            note = viewModel.note ?? ""
         }
+        .onChange(of: viewModel.note) { newNote in
+            note = newNote ?? ""
+        }
+        .overlay(
+            ZStack {
+                if viewModel.showSnackbar {
+                    VStack {
+                        Spacer()
+                        Snackbar(message: viewModel.snackbarMessage, isSuccess: viewModel.isSuccessMessage)
+                    }
+                    .padding(.bottom)
+                    .transition(.move(edge: .bottom))
+                    .animation(.easeInOut, value: viewModel.showSnackbar)
+                }
+            }, alignment: .bottom
+        )
     }
 }
 
@@ -83,10 +100,29 @@ struct RemoteImageView: UIViewRepresentable {
     func makeUIView(context: Context) -> UIImageView {
         let imageView = UIImageView()
         imageView.contentMode = .scaleToFill
+        imageView.clipsToBounds = true
         return imageView
     }
     
     func updateUIView(_ uiView: UIImageView, context: Context) {
-        ImageLoader.loadImage(from: urlString, into: uiView)
+        guard let url = URL(string: urlString) else { return }
+        
+        ImageLoader.shared.loadImage(from: url) { image in
+            uiView.image = image
+        }
+    }
+}
+
+struct Snackbar: View {
+    var message: String
+    var isSuccess: Bool
+    
+    var body: some View {
+        Text(message)
+            .padding(8)
+            .background(isSuccess ? Color(UIColor.systemGreen) : Color(UIColor.systemRed))
+            .foregroundColor(.white)
+            .cornerRadius(8)
+            .transition(.move(edge: .bottom))
     }
 }

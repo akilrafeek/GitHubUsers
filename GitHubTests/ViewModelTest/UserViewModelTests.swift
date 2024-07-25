@@ -6,8 +6,8 @@
 //
 
 import XCTest
-@testable import GitHub
 import CoreData
+@testable import GitHub
 
 class UserViewModelTests: XCTestCase {
     

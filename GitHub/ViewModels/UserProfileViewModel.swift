@@ -6,116 +6,102 @@
 //
 
 import Foundation
-import CoreData
-import UIKit
+import Combine
 
 class UserProfileViewModel: ObservableObject {
-    @Published var user: User?
-    @Published var inputNote: String = ""
-    let username: String
-    let userId: Int16
-    var userProfile: NSManagedObject?
+    private let userLogin: String
+    private let coreDataManager: CoreDataManagerProtocol
+    private let networkManager: NetworkManagerProtocol
+    private var cancellables = Set<AnyCancellable>()
     
-    init(username: String, userId: Int16) {
-        self.username = username
-        self.userId = userId
+    @Published var showSnackbar = false
+    @Published var snackbarMessage = ""
+    @Published var isSuccessMessage = false
+    
+    @Published var avatarUrl: String = ""
+    @Published var login: String = ""
+    @Published var blog: String = ""
+    @Published var company: String = ""
+    @Published var followers: Int = 0
+    @Published var following: Int = 0
+    @Published var name: String = ""
+    @Published var note: String?
+    
+    init(userLogin: String, coreDataManager: CoreDataManagerProtocol, networkManager: NetworkManagerProtocol) {
+        self.userLogin = userLogin
+        self.coreDataManager = coreDataManager
+        self.networkManager = networkManager
     }
     
-    func fetchUserProfile() {
-        if Reachability.isConnectedToNetwork() {
-            NetworkManager.shared.fetchUserProfile(username: username) { [weak self] result in
-                DispatchQueue.main.async {
-                    switch result {
-                    case .success(let user):
-                        self?.saveUserProfileToLocal(user)
-                        self?.loadUserProfileFromLocal()
-                    case .failure(_):
-                        self?.loadUserProfileFromLocal()
-                    }
+    func loadUserProfile() {
+        coreDataManager.fetchUser(withLogin: userLogin) { [weak self] userEntity in
+            if let user = userEntity, user.name != "" {
+                self?.updateFromUserEntity(user)
+            } else {
+                self?.fetchUserProfile()
+            }
+        }
+    }
+    
+    private func fetchUserProfile() {
+        networkManager.fetchUserProfile(username: userLogin) { [weak self] result in
+            switch result {
+            case .success(let userProfile):
+                self?.updateFromUserProfile(userProfile)
+                self?.saveUserProfileToLocal(userProfile)
+            case .failure(let error):
+                print("Error fetching user profile: \(error)")
+            }
+        }
+    }
+    
+    private func updateFromUserEntity(_ user: UserEntityProtocol) {
+        DispatchQueue.main.async {
+            self.avatarUrl = user.avatarUrl
+            self.login = user.login
+            self.blog = user.blog ?? "-"
+            self.followers = Int(user.followers)
+            self.following = Int(user.following)
+            self.company = user.company ?? "-"
+            self.name = user.name
+            self.note = user.note?.content
+        }
+    }
+    
+    private func updateFromUserProfile(_ user: UserProfile) {
+        DispatchQueue.main.async {
+            self.avatarUrl = user.avatarUrl
+            self.login = user.login
+            self.blog = user.blog
+            self.followers = user.followers
+            self.following = user.following
+            self.company = user.company ?? "-"
+            self.name = user.name
+        }
+    }
+    
+    private func saveUserProfileToLocal(_ userProfile: UserProfile) {
+        coreDataManager.updateUser(user: userProfile)
+    }
+    
+    func saveNote(_ noteContent: String) {
+        coreDataManager.saveNote(for: userLogin, content: noteContent) { success in
+            DispatchQueue.main.async {
+                self.note = noteContent
+                if success {
+                    self.snackbarMessage = "Note saved successfully!"
+                    self.isSuccessMessage = true
+                } else {
+                    self.snackbarMessage = "Error saving note!"
+                    self.isSuccessMessage = false
+                }
+                self.showSnackbar = true
+                
+                // Hide the snackbar after 3 seconds
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    self.showSnackbar = false
                 }
             }
-        } else {
-            loadUserProfileFromLocal()
         }
     }
-    
-    private func saveUserProfileToLocal(_ fetchedUsers: UserProfile) {
-        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {return}
-        let managedContext = appDelegate.persistentContainer.viewContext
-        
-        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest.init(entityName: "UsersList")
-        fetchRequest.predicate = NSPredicate(format: "login = %@", username)
-        
-        do {
-            let usersList = try managedContext.fetch(fetchRequest)
-            let objectUpdate = usersList[0] as! NSManagedObject
-            objectUpdate.setValue(fetchedUsers.blog, forKey: "blog")
-            objectUpdate.setValue(fetchedUsers.company, forKey: "company")
-            objectUpdate.setValue(fetchedUsers.email, forKey: "email")
-            objectUpdate.setValue(fetchedUsers.followers, forKey: "followers")
-            objectUpdate.setValue(fetchedUsers.following, forKey: "following")
-            objectUpdate.setValue(fetchedUsers.location, forKey: "location")
-            do {
-                try managedContext.save()
-            } catch {
-                print("Failed to update UsersList to local: \(error)")
-            }
-        } catch {
-            print("Failed to update UsersList to local: \(error)")
-        }
-    }
-    
-    func loadUserProfileFromLocal() {
-        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {return}
-        let managedContext = appDelegate.persistentContainer.viewContext
-        
-        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "UsersList")
-        fetchRequest.predicate = NSPredicate(format: "login = %@", username)
-        
-        do {
-            let result = try managedContext.fetch(fetchRequest)
-            userProfile = result[0] as? NSManagedObject
-            self.inputNote = userProfile?.value(forKey: "notes") as? String ?? ""
-        } catch {
-            print("Failed to load UsersList from local: \(error)")
-        }
-    }
-    
-    func saveNoteToLocal() {
-        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {return}
-        let managedContext = appDelegate.persistentContainer.viewContext
-        
-        let fetchRequest: NSFetchRequest<NSFetchRequestResult> = NSFetchRequest.init(entityName: "UsersList")
-        fetchRequest.predicate = NSPredicate(format: "login = %@", username)
-        
-        do {
-            let userList = try managedContext.fetch(fetchRequest)
-            let objectUpdate = userList[0] as! NSManagedObject
-            objectUpdate.setValue(self.inputNote, forKey: "notes")
-            
-            do {
-                try managedContext.save()
-            } catch {
-                print(error)
-            }
-        } catch {
-            print(error)
-        }
-    }
-    
-//    func loadNoteFromLocal() {
-//        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate else {return}
-//        let managedContext = appDelegate.persistentContainer.viewContext
-//        
-//        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "UsersList")
-//        fetchRequest.predicate = NSPredicate(format: "login = %@", username)
-//        
-//        do {
-//            let result = try managedContext.fetch(fetchRequest)
-//            let getNote = result[0] as! NSManagedObject
-//            self.inputNote = getNote.value(forKey: "notes") as? String ?? ""
-//        } catch {
-//            print("Failed to load UsersList from local: \(error)")
-//        }
-//    }
 }

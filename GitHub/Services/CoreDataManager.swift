@@ -9,19 +9,40 @@ import Foundation
 import CoreData
 import UIKit
 
-class CoreDataManager {
+class CoreDataManager: CoreDataManagerProtocol {
+    
     static let shared = CoreDataManager()
     
-    private init() {}
+    private let persistentContainer: NSPersistentContainer
+    
+    internal init(inMemory: Bool = false, managedObjectModel: NSManagedObjectModel? = nil) {
+        if let model = managedObjectModel {
+            persistentContainer = NSPersistentContainer(name: "GitHub", managedObjectModel: model)
+        } else {
+            persistentContainer = NSPersistentContainer(name: "GitHub")
+        }
+        
+        if inMemory {
+            persistentContainer.persistentStoreDescriptions.first!.url = URL(fileURLWithPath: "/dev/null")
+        }
+        
+        persistentContainer.loadPersistentStores { (storeDescription, error) in
+            if let error = error as NSError? {
+                fatalError("Unresolved error \(error), \(error.userInfo)")
+            }
+        }
+    }
     
     private let writeQueue = DispatchQueue(label: "com.GitHub.coredata.writequeue")
     
     lazy var mainContext: NSManagedObjectContext = {
-        return (UIApplication.shared.delegate as! AppDelegate).mainContext
+        return persistentContainer.viewContext
     }()
     
     lazy var backgroundContext: NSManagedObjectContext = {
-        return (UIApplication.shared.delegate as! AppDelegate).backgroundContext
+        let context = persistentContainer.newBackgroundContext()
+        context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        return context
     }()
     
     func saveContext(_ context: NSManagedObjectContext) {
@@ -48,23 +69,6 @@ class CoreDataManager {
             }
         }
     }
-    
-//    func createUsers(user: User) {
-//        performBackgroundTask { context in
-//            let fetchRequest: NSFetchRequest<UserEntity> = UserEntity.fetchRequest()
-//            fetchRequest.predicate = NSPredicate(format: "id == %d", user.id)
-//            
-//            do {
-//                let results = try context.fetch(fetchRequest)
-//                let userEntity = results.first ?? UserEntity(context: context)
-//                userEntity.id = Int64(user.id)
-//                userEntity.login = user.login
-//                userEntity.avatarUrl = user.avatarUrl
-//            } catch {
-//                print("Error fetching user: \(error)")
-//            }
-//        }
-//    }
     
     func createUsersList(user: User) {
         performBackgroundTask { context in
@@ -95,6 +99,9 @@ class CoreDataManager {
                     userEntity.name = user.name
                     userEntity.company = user.company
                     userEntity.blog = user.blog
+                    userEntity.followers = Int32(user.followers)
+                    userEntity.following = Int32(user.following)
+                    userEntity.isSeen = true
                     
                     try context.save()
                     
@@ -115,6 +122,7 @@ class CoreDataManager {
     func fetchUsers(completion: @escaping ([UserEntity]) -> Void) {
         mainContext.perform {
             let fetchRequest: NSFetchRequest<UserEntity> = UserEntity.fetchRequest()
+            fetchRequest.sortDescriptors = [NSSortDescriptor(key: "id", ascending: true)]
             do {
                 let users = try self.mainContext.fetch(fetchRequest)
                 completion(users)
@@ -125,7 +133,7 @@ class CoreDataManager {
         }
     }
     
-    func fetchUser(withLogin login: String, completion: @escaping (UserEntity?) -> Void) {
+    func fetchUser(withLogin login: String, completion: @escaping (UserEntityProtocol?) -> Void) {
         mainContext.perform {
             let fetchRequest: NSFetchRequest<UserEntity> = UserEntity.fetchRequest()
             fetchRequest.predicate = NSPredicate(format: "login == %@", login)
@@ -141,7 +149,7 @@ class CoreDataManager {
         }
     }
     
-    func saveNote(for userLogin: String, content: String) {
+    func saveNote(for userLogin: String, content: String, completion: @escaping (Bool) -> Void) {
         performBackgroundTask { context in
             let fetchRequest: NSFetchRequest<UserEntity> = UserEntity.fetchRequest()
             fetchRequest.predicate = NSPredicate(format: "login == %@", userLogin)
@@ -158,17 +166,27 @@ class CoreDataManager {
                         self.mainContext.performAndWait {
                             self.mainContext.refreshAllObjects()
                         }
+                        completion(true)
                     }
                 }
             } catch {
                 print("Error saving note: \(error)")
+                completion(false)
             }
             
             
         }
     }
     
-    func fetchNote(for user: UserEntity) -> NoteEntity? {
+    func fetchNote(for user: UserEntityProtocol) -> NoteEntity? {
         return user.note
     }
+}
+
+protocol CoreDataManagerProtocol {
+    func updateUser(user: UserProfile)
+    func fetchUser(withLogin login: String, completion: @escaping (UserEntityProtocol?) -> Void)
+    func fetchUsers(completion: @escaping ([UserEntity]) -> Void)
+    func createUsersList(user: User)
+    func saveNote(for userLogin: String, content: String, completion: @escaping (Bool) -> Void)
 }

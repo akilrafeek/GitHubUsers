@@ -9,14 +9,16 @@ import Foundation
 @testable import GitHub
 
 class MockCoreDataManager: CoreDataManagerProtocol {
+    var shouldReturnUser: UserEntityProtocol?
     var fetchUsersResult: [UserEntity] = []
+    var users: [MockUserEntity] = []
     
     func updateUser(user: UserProfile) {
         //later
     }
     
-    func fetchUser(withLogin login: String, completion: @escaping (UserEntity?) -> Void) {
-        completion(fetchUsersResult[0])
+    func fetchUser(withLogin login: String, completion: @escaping (UserEntityProtocol?) -> Void) {
+//        completion(users[0])
     }
     
     func fetchUsers(completion: @escaping ([UserEntity]) -> Void) {
@@ -30,5 +32,9 @@ class MockCoreDataManager: CoreDataManagerProtocol {
         userEntity.login = user.login
         userEntity.avatarUrl = user.avatarUrl
         fetchUsersResult.append(userEntity)
+    }
+    
+    func saveNote(for userLogin: String, content: String, completion: @escaping (Bool) -> Void) {
+        completion(true)
     }
 }
