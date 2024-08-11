@@ -885,7 +885,7 @@
 			);
 			currentVersion = B1B492B62C2D7685000AE69E /* GitHub.xcdatamodel */;
 			name = GitHub.xcdatamodeld;
-			path = /Users/rizwanrafeek/Desktop/GitHub/GitHub/GitHub.xcdatamodeld;
+			path = GitHub.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;
 		};
