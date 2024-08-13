@@ -11,6 +11,7 @@ struct UserProfileView: View {
     @ObservedObject var viewModel: UserProfileViewModel
     @State private var note: String = ""
     @Environment(\.colorScheme) var colorScheme
+    @StateObject private var keyboard = KeyboardResponder()
     
     var body: some View {
         VStack(alignment: .leading) {
@@ -50,6 +51,7 @@ struct UserProfileView: View {
                 VStack(alignment: .leading) {
                     Text("Notes:").padding([.leading], 15)
                     TextEditor(text: $note)
+                        .frame(height: 150)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
                                 .stroke(colorScheme == .dark ? Color.white : Color.black, lineWidth: 1)
@@ -67,6 +69,8 @@ struct UserProfileView: View {
             }
             
         }
+        .padding(.bottom, keyboard.currentHeight)
+        .animation(.easeOut(duration: 0.16))
         .onAppear {
             viewModel.loadUserProfile()
             note = viewModel.note ?? ""
@@ -80,6 +84,7 @@ struct UserProfileView: View {
                     VStack {
                         Spacer()
                         Snackbar(message: viewModel.snackbarMessage, isSuccess: viewModel.isSuccessMessage)
+                            .padding(.bottom, keyboard.currentHeight)
                     }
                     .padding(.bottom)
                     .transition(.move(edge: .bottom))
@@ -87,6 +92,10 @@ struct UserProfileView: View {
                 }
             }, alignment: .bottom
         )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            dismissKeyboard()
+        }
     }
 }
 
@@ -124,5 +133,12 @@ struct Snackbar: View {
             .foregroundColor(.white)
             .cornerRadius(8)
             .transition(.move(edge: .bottom))
+    }
+}
+
+extension View {
+    //function to dismiss keyboard
+    func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }

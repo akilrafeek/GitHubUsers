@@ -98,12 +98,13 @@ class UserViewModel {
     }
     
     private func saveUsersToLocal(_ data: [User]) {
-        for userData in data {
-            coreDataManager.createUsersList(user: userData)
-        }
-        coreDataManager.fetchUsers { [weak self] fetchedUsers in
-            self?.users = fetchedUsers
-            self?.onUserFetched?()
+        coreDataManager.createUsersList(users: data){ success in
+            if success {
+                self.coreDataManager.fetchUsers { [weak self] fetchedUsers in
+                    self?.users = fetchedUsers
+                    self?.onUserFetched?()
+                }
+            }
         }
     }
     
