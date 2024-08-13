@@ -60,8 +60,6 @@ class CoreDataManager: CoreDataManagerProtocol {
     
     func performBackgroundTask(_ block: @escaping (NSManagedObjectContext) -> Void) {
         persistentContainer.performBackgroundTask { [weak self] context in
-            print("babboon")
-            print("Current thread: \(Thread.current)")
             block(context)
             if context.hasChanges {
                 do {
